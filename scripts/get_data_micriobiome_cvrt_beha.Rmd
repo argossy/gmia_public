@@ -1,0 +1,763 @@
+---
+title: "Association of microbiome vs mask task in GIMA dataset"
+author:
+- Kai Xia
+date: "`r format(Sys.time(), '%d %B %Y')`"
+
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### load data file Microbiome diversity raw file
+
+library(xlsx)
+library(knitr)
+#library(tidyr)
+
+#dataset = 'yr1'
+dir_wk = 'OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = sprintf('C:/Users/kxia/%s', dir_wk)
+} else{
+  dir1 = sprintf('/Users/kaixia/%s', dir_wk)
+}
+
+#setwd(dir1)
+#dir_beha = 'behaviordata'
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt',dir_raw)
+
+dir_ibqr = sprintf('%s/questionnaires', dir_raw)
+
+# if(dataset == 'yr1'){
+#   picrustName = '1yr'
+# }
+# dir_picrust = sprintf('picurst/%spicrust',picrustName)
+# L_names = c('L1','L2','L3')
+# for (ii in 1:L_names){
+#   
+# }
+
+datasets = c('neo','yr1')
+#fileins_cvrt = c('GMIAR21dataset_NEO_6MAY18.csv','GMIAR21_1YR6mo_6MAY18.csv')
+
+filein_cvrt = sprintf('%s/GMIAR21dataset_alldemo_17DEC18.xlsx',dir_cvrt)
+filein_cvrt_sheetNames = c('GMIAneomicrobiome','GMIA1yrmicrobiome')
+
+
+
+## Alex's note about removing subjects
+# MA042 should be removed from all analyses as that subject does not have useable microbiome data - do not include in covariate analyses.
+
+# MA021 needs to be removed from our analyses. Sorry about this. I will update the data analysis plan. They only have microbiome data and the neo visit so should not affect our results. But I will have to rerun the beta diversity for neonates
+id_subject_remove = c('MA042','MA021')
+
+
+## these covariate analyses because the response is less than 20%
+id_cvrt_remove = list()
+id_cvrt_remove[[1]] = c('APGAR5')
+id_cvrt_remove[[2]]= c('APGAR5','METHNIC', 'PETHNIC','CURBRFEED_6mo',
+ 'VITAMIND_1yr','Yogurt_1yr')
+#########################################################################
+### ATTN
+### need to use the original version of covariates so that I won't miss the or do we have to?
+
+## neo diversity
+#dir_raw = 'raw_data'
+
+
+for(i in 1:length(datasets)){
+  # i = 1;
+  dataset = datasets[i]
+  
+  
+  ### beta diveristy
+  dir_div = sprintf('%s/diversity/%s/core_div',dir_raw,dataset)
+  dir_div_beta = sprintf('%s/bdiv_even5000',dir_div)
+  dir_div_alpha = sprintf('%s/arare_max5000/alpha_div_collated',dir_div)
+  
+  beta=read.table(sprintf("%s/unweighted_unifrac_pc_mod.txt",dir_div_beta),header=FALSE)
+
+  weight_beta=read.table(sprintf("%s/weighted_unifrac_pc_mod.txt",dir_div_beta),header=FALSE)
+
+
+  weight_beta=weight_beta[,c(1:5)]
+  colnames(weight_beta)=c("SUBID","wunifrac.PC.1","wunifrac.PC.2","wunifrac.PC.3","wunifrac.PC.4")
+
+  beta=beta[,c(1:5)]
+  colnames(beta)=c("SUBID","unifrac.PC.1","unifrac.PC.2","unifrac.PC.3","unifrac.PC.4")
+
+  div_beta = merge(weight_beta,beta,by=1)
+
+  div_beta[,1]<-substr(div_beta[,1],0,5)
+  
+  
+  
+  ### alpha diversity
+  mx_alpha = c()
+  divNames = c('chao1','observed_otus','PD_whole_tree','shannon')
+  
+  for(divName in divNames){
+    filein_div_alpha = sprintf("%s/%s.txt",dir_div_alpha,divName)
+    div_alpha=read.delim(filein_div_alpha, header=TRUE, na.strings = "NA",fill=TRUE)
+    
+    ## get the average of rarefaction 5000
+    div_alpha=div_alpha[div_alpha[,2] == 5000,]
+    
+    ## remove the first 3 columns
+    div_alpha=div_alpha[,-c(1:3)]
+    value_alpha = apply(div_alpha,2,mean)
+    mx_alpha = rbind(mx_alpha, value_alpha)
+    #data_div_alpha = t(data_div_alpha)
+    
+    #colnames(div_alpha)[1] <- "chao1"
+  }
+  rownames(mx_alpha) = divNames
+  mx2 = t(mx_alpha)
+  SUBID = rownames(mx2)
+  
+  ## remove 'neo' or 'yr1' label in the ID
+  SUBID = substr(SUBID,0,5)
+  mx3 = data.frame(SUBID, mx2)
+  
+  
+  ## merge alpha and beta diversity
+  mx_div = merge(div_beta, mx3, by = 1)
+  
+  #filein_cvrt = sprintf('%s/%s',dir_cvrt,fileins_cvrt[i])
+  covariate=read.xlsx(filein_cvrt, sheetName = filein_cvrt_sheetNames[i])
+  
+  ### remove the indicators variables that were created by Alex
+  covariate = covariate[, -c(2:8)]
+  
+  
+  
+ #  ### if it is yr1 ,extra data is to be loaded into the cvrt datasets
+ # # Negative Life Events (LES_17NOV18), Positive Life Events (LES_17NOV18), Total Life Events (LES_17NOV18), State Anxiety (STAI_17NOV18), Trait Anxiety (STAI_17NOV18)
+ #  if(dataset == 'yr1'){
+ #    filein_stai = sprintf('%s/STAI_17NOV18.csv',dir_ibqr)
+ #    data_stai = read.csv(filein_stai,header=TRUE)
+ #    colnames(data_stai)[3:4] = c('StateAnxiety','TraitAnxiety')
+ #    
+ #    filein_les = sprintf('%s/LES_17NOV18.csv',dir_ibqr)
+ #    data_les = read.csv(filein_les,header=TRUE)
+ #    
+ #    mx_tmp = merge(data_stai,data_les, by = 1, sort = FALSE)
+ #    mx_tmp = mx_tmp[,c('SUBID','NegativeLifeEvents','PositiveLifeEvents','TotalLifeEvents','StateAnxiety','TraitAnxiety')]
+ #    
+ #    covariate = merge(covariate,mx_tmp, by = 1, all.x = TRUE)
+ #    
+ #    
+ #  }
+  
+  
+  
+  ## remove subject
+  idx_rm = which(covariate[,1] %in% id_subject_remove)
+  if(length(idx_rm) > 0){
+    covariate = covariate[-idx_rm,]
+  }
+  
+  ## remove covariates
+  idx_col_rm = which(colnames(covariate) %in% id_cvrt_remove[[i]])
+  if(length(idx_col_rm) > 0){
+    covariate = covariate[, -idx_col_rm]
+  }
+  
+  
+  
+  ## create diversity and covariate file and output
+  data_beta_cvrt <- merge(mx_div,covariate, by=1, all.x= TRUE, all.y = TRUE)
+  
+  fileout_div_cvrt = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset)
+  write.csv(data_beta_cvrt,fileout_div_cvrt,row.names = FALSE)
+
+  #fileout_cvrt = sprintf('%s/cvrt_diversity_%s.csv',dir_mb,dataset)
+  #write.csv(covariate,fileout_cvrt,row.names = FALSE)
+}
+
+```
+
+
+
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### load behavior data and combine with diversity data
+
+#library(xlsx)
+library(knitr)
+#library(tidyr)
+
+#dataset = 'yr1'
+
+#dir_beha = 'behaviordata'
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_mask = sprintf('%s/behaviordata',dir_raw)
+
+## Mask data summary data
+file_mask_sum = sprintf('%s/GMIAmask_6JUN18.csv',dir_mask)
+data_mask_sum = read.csv(file_mask_sum,strings=FALSE)
+  
+## load the individual episode of mask data
+## Mask data summary data
+file_mask_ind = sprintf('%s/GMIAindividualMaskBehavior_5JUN18.csv',dir_mask)
+data_mask_ind = read.csv(file_mask_ind,strings=FALSE)
+
+## reshape
+varNames = c("LatencyFearResponse", "IntensityFacialFear..0.3."                 
+          ,"IntensityVocalDistress..0.3.","IntensityBodilyFear..0.3."                 
+          ,"PresenceStartleResponse.0.no.1.yes", "IntensityEscapeBehavior..0.3.")            
+#, "Mask1BaselineState",                              "Mask1ParentBehavior"                            
+#, "Mask1RecoveryLatencyFearResponse",                "Mask1RecoveryIntensityFacialFear..0.3."         
+#, "Mask1RecoveryIntensityVocalDistress..0.3.",       "Mask1RecoveryIntensityBodilyFear..0.3."         
+#, "Mask1RecoveryPresenceStartleResponse.0.no.1.yes", "Mask1RecoveryIntensityEscapeBehavior..0.3."     
+#, "Mask1RecoveryBaselineState",                      "Mask1RecoveryParentBehavior")
+
+
+# https://stackoverflow.com/questions/23945350/reshaping-wide-to-long-with-multiple-values-columns
+
+## ATTN: guessing is not attempted if v.names is given explicitly. Notice that the order of variables in varying is like x.1,y.1,x.2,y.2.
+## ATTN: the varyingNames need to be a matrix to make this work so the results are not messed.
+## still need to check the data !!!!!!!!!!!!!!!!!!
+
+varyingNames = t(outer(paste('Mask',1:4,sep=''),varNames,FUN=paste0))
+
+
+maskNames = paste('Mask',varNames,sep='')
+idName = 'Subject'
+timeName = 'episode'
+
+data_mask_long = reshape(data_mask_ind, varying = varyingNames
+                      ,v.names = maskNames, timevar=timeName
+                      ,times=1:4, direction='long',idvar = idName)
+  
+#}
+data_mask_long = data_mask_long[,c(idName, timeName, maskNames)]
+  
+
+datasets = c('neo','yr1')
+#fileins_cvrt = c('GMIAR21dataset_NEO_6MAY18.csv','GMIAR21_1YR6mo_6MAY18.csv')
+
+for(i in 1:length(datasets)){
+  # i = 1;
+  dataset = datasets[i]
+  
+  file_div = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset)
+  data_div = read.csv(file_div,header=TRUE)
+  colnames(data_div) = gsub('X\\.','',colnames(data_div))
+  
+  fileout_mx = sprintf('%s/data_%s_beha.csv',dir_mb, dataset)
+  
+
+  
+  ## merge dataset and output
+  mx_div_mask = merge(data_div, data_mask_sum, by = 1, all = TRUE)
+  write.csv(mx_div_mask, fileout_mx, row.names = FALSE)
+  
+  
+  ## create longformat of the data
+  fileout_mx_long = sprintf('%s/data_%s_beha_long.csv',dir_mb, dataset)
+
+  mx_div_mask_long = merge(data_div, data_mask_long, by = 1, all.y = TRUE)
+  mx_div_mask_long[mx_div_mask_long == 99] = 12
+  write.csv(mx_div_mask_long, fileout_mx_long, row.names = FALSE)
+}
+
+```
+
+# Corerlation of mask task and the estimated number of testing
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### calculate the estimated number of testing for all the correlation mask task phenotype
+#library(xlsx)
+library(knitr)
+#library(tidyr)
+source('data_analysis.R')
+#dataset = 'yr1'
+
+#dir_beha = 'behaviordata'
+dir_mb = '../processed_data'
+dir_out = '../results'
+
+
+edataName = c('MaskAverageScore_FacialFear'
+		,'MaskAverageScore_VocalDistress'
+		,'MaskAverageScore_BodilyFear'
+		,'MaskAverageScore_StartleResponse'
+		,'MaskAverageScore_EscapeBehavior')
+
+
+datasets = c('neo','yr1')
+
+## Mask data summary data
+for(i in 1:length(datasets)){
+  # i = 1;
+  dataset = datasets[i]
+  
+  
+  file_div = sprintf('%s/data_%s_beha.csv',dir_mb, dataset)
+  data_div = read.csv(file_div,header=TRUE)
+  
+  mx_cor = cor(data_div[,edataName],method='spearman', use='pairwise.complete.obs')
+  
+  mx_out = cal_estimated_n_testing(mx_cor)
+  
+  fileout_cor_matrix = sprintf('%s/corr_matrix_mask_%s.csv',dir_out,dataset)
+  #mx_cor = round(mx_cor,2)
+  write.csv(mx_cor, fileout_cor_matrix)
+  
+  colnames(mx_cor) = gsub('MaskAverageScore_','',colnames(mx_cor))
+  rownames(mx_cor) = gsub('MaskAverageScore_','',rownames(mx_cor))
+
+  print(kable(round(mx_cor,2),caption = sprintf('%s: Correlation matrix of mask task using average', dataset)))
+  
+  print(kable(round(mx_out,1),caption = sprintf('%s: The estimated number of testing', dataset)))
+  
+}
+
+
+
+
+
+```
+
+\pagebreak
+
+## Microbiome beta diversity (PC1 and PC2) correlation (yr1 vs neo)
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### neo vs brain volume data
+
+library(knitr)
+dataset0 = 'neo'
+dataset1 = 'yr1'
+dataset = 'diff'
+
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = 'C:/Users/kxia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+} else{
+  dir1 = '/Users/kaixia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+}
+
+setwd(dir1)
+
+source('data_analysis.R')
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+#dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+
+
+div_Names = c("wunifrac.PC.1","wunifrac.PC.2")
+
+##load the mask
+fileout_diversity_beha = sprintf('%s/data_%s_beha.csv',dir_mb,dataset1)
+dat_ss = read.csv(fileout_diversity_beha,header=TRUE, check.names = FALSE)
+
+## remove the div in dat_ss
+dat_ss = dat_ss[, -which(colnames(dat_ss) %in% div_Names)]
+
+edataNames = colnames(dat_ss)[grep('Mask',colnames(dat_ss))]
+
+#dataName = 'div_diff_vs_strange'
+
+#edataNames = c('Summed','Average','Max','Episode3.1','Episode3.2','Episode3.3','IBQr_fear')
+
+
+filein0_diversity = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset0)
+dat0 = read.csv(filein0_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+filein1_diversity = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset1)
+dat1 = read.csv(filein1_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+
+
+colNames = c("SUBID", div_Names)
+
+dat0 = dat0[,colNames]
+dat1 = dat1[,colNames]
+mx1 = merge(dat0,dat1,by.x=1,by.y=1)
+#div_Names = c('chao1','observed.species','PD.whole','shannon')
+colNames1 = colnames(mx1)
+colNames1 = gsub('.x','.neo',colNames1)
+colNames1 = gsub('.y','.yr1',colNames1)
+colnames(mx1) = colNames1
+cor_mat = cor(mx1[,-1], use = 'pairwise.complete.obs')
+
+
+  print(kable(round(cor_mat,2),caption = sprintf('Correlation matrix of beta diversity between neo and yr1')))
+  
+mat1 = mx1[,-1]
+cor_pval = cor_mat
+for( i in 1:dim(mat1)[2] ) {
+  for( j in 1:dim(mat1)[2] ) {
+    pval = cor.test(mat1[,i],mat1[,j],use = "complete.obs")$p.value
+    cor_pval[i,j] = format(as.numeric(pval), digits = 4) 
+  }
+}
+  print(kable(cor_pval,caption = sprintf('p-value of Correlation test of beta diversity between neo and yr1')))
+
+
+
+```
+
+
+\pagebreak
+
+# Association analysis between diversity and covariates using linear model for max, sum and average
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### association analysis between diversity and covariates
+### use yr1 and neo separately with different set of covariates
+
+library(xlsx)
+library(knitr)
+
+
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = 'C:/Users/kxia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+} else{
+  dir1 = '/Users/kaixia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+}
+
+setwd(dir1)
+
+source('data_analysis.R')
+
+
+#dir_beha = 'behaviordata'
+dir_mb = '../processed_data'
+dir_out = '../results'
+
+
+datasets = c('neo','yr1')
+sheetNames = c('GMIAneomicrobiome','GMIA1yrmicrobiome')
+
+for(i in 1:length(datasets)){
+  # i = 1;
+  
+  dataset = datasets[i]
+  file_diversity_beha = sprintf('%s/data_%s_beha.csv',dir_mb,dataset)
+  mx2 = read.csv(file_diversity_beha,header=TRUE)
+  
+  filein_cvrt_div = sprintf('%s/GMIAR21dataset_alldemo_17DEC18.xlsx',dir_cvrt)
+  data_cvrt_div = read.xlsx(filein_cvrt_div, sheetName = sheetNames[i])
+  cdataNames_div = colnames(data_cvrt_div)[-c(1:8)]
+  
+  filein_cvrt_mask = sprintf('%s/GMIAR21dataset_alldemo_17DEC18.xlsx',dir_cvrt)
+  sheetName = 'GMIAmask'
+  data_cvrt_mask = read.xlsx(filein_cvrt_mask, sheetName = sheetName)
+  data_cvrt_mask = data_cvrt_mask[,-c(2:8)]
+  cdataNames_mask = colnames(data_cvrt_mask)[-1]
+  
+  ## select the cdataName and edataName
+  edataNames_mask = colnames(mx2)[grep('Mask',colnames(mx2))]
+  
+  
+  #cdataNames = colnames(data_cvrt)[-1]
+  
+  edataNames_div = c(paste("wunifrac.PC.",1:4,sep='')
+                  ,paste("unifrac.PC.",1:4,sep='') 
+                  ,"chao1","observed_otus","PD_whole_tree","shannon")
+  
+    
+  dataName = sprintf('cvrt_vs_diversity_%s',dataset)
+  pairwise_association_test(mx2,cdataNames_div,edataNames_div,dataName=dataName,dir_out = dir_out)
+
+  ### for mask task of latency, need to use survival method and change the coding from 99 to 7?
+  dataName = sprintf('mask_vs_diversity_%s',dataset)
+
+  cat('\\pagebreak')
+  cat("\n")
+  cat("#",dataset,' mask task vs diversity', "\n\n")
+  pairwise_association_test(mx2,edataNames_div,edataNames_mask,dataName=dataName,dir_out = dir_out)
+  
+  
+  ### merge cdata_mask and mask data
+  
+  mx3 = merge(mx2[,c('SUBID',edataNames_mask)], data_cvrt_mask, by=1)
+  
+  dataName = sprintf('mask_vs_cvrt_%s',dataset)
+  cat('\\pagebreak')
+  cat("\n")
+  cat("#",dataset,' mask task vs covariate', "\n\n")
+  pairwise_association_test(mx3,cdataNames_mask,edataNames_mask,dataName=dataName,dir_out = dir_out)
+
+}
+
+
+```
+
+\pagebreak
+
+# Association analysis between mask task and diversity using (linear mixed effect model for repeated measures)
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### get the association analysis using linear mixed effect model
+### to treat the episodes as repeated measures
+
+
+library(knitr)
+library("lme4")
+#library(survival)
+#library(coxme)
+
+
+#dataset = 'yr1'
+dir_wk = 'OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = sprintf('C:/Users/kxia/%s', dir_wk)
+} else{
+  dir1 = sprintf('/Users/kaixia/%s', dir_wk)
+}
+
+setwd(dir1)
+#dir_beha = 'behaviordata'
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt',dir_raw)
+
+#dir_ibqr = 'questionnaires'
+
+source('data_analysis.R')
+
+
+
+
+#dir_beha = 'behaviordata'
+dir_mb = '../processed_data'
+dir_out = '../results'
+
+
+datasets = c('neo','yr1')
+cvrtNames = 'episode'
+randomName = 'SUBID'
+
+
+for(ii in 1:length(datasets)){
+  # i = 1;
+  dataset = datasets[ii]
+  file_diversity_beha = sprintf('%s/data_%s_beha_long.csv',dir_mb,dataset)
+  mx2 = read.csv(file_diversity_beha,header=TRUE)
+  
+  #file_cvrt = sprintf('%s/%s_covariate.csv',dir_mb, dataset)
+  #data_cvrt = read.csv(file_cvrt,header=TRUE)
+  
+  ## select the cdataName and edataName
+  edataNames = colnames(mx2)[grep('Mask',colnames(mx2))]
+  #cdataNames = colnames(data_cvrt)[-c(1:2)]
+  
+  cdataNames = c(paste("wunifrac.PC.",1:4,sep='')
+                  ,paste("unifrac.PC.",1:4,sep='') 
+                  ,"chao1","observed_otus","PD_whole_tree","shannon")
+  
+  #mx_beha = merge(mx2, data_cvrt, by=1, sort= FALSE)
+  # j
+  
+  # surNames = c('MaskLatencyFearResponse')
+  # methods = rep('lmm',length(edataNames))
+  # idx = which(edataNames %in% surNames)
+  # methods[idx] = 'survival'
+  dataName = sprintf('mask_ind_vs_diversity_%s',dataset)
+
+  pairwise_association_test_lmm(mx2, cdataNames, edataNames, randomName, cvrtNames,dataName = dataName, dir_out = dir_out)
+  
+}
+
+
+
+```
+
+
+
+
+## Microbiome alpha diversity difference (yr1 vs neo) vs Mask
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### neo vs brain volume data
+
+library(knitr)
+dataset0 = 'neo'
+dataset1 = 'yr1'
+dataset = 'diff'
+
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = 'C:/Users/kxia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+} else{
+  dir1 = '/Users/kaixia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+}
+
+setwd(dir1)
+
+source('data_analysis.R')
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+#dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+
+
+div_Names = c("chao1", "observed_otus", "PD_whole_tree", "shannon")
+
+##load the mask
+fileout_diversity_beha = sprintf('%s/data_%s_beha.csv',dir_mb,dataset1)
+dat_ss = read.csv(fileout_diversity_beha,header=TRUE, check.names = FALSE)
+
+## remove the div in dat_ss
+dat_ss = dat_ss[, -which(colnames(dat_ss) %in% div_Names)]
+
+edataNames = colnames(dat_ss)[grep('Mask',colnames(mx2))]
+
+#dataName = 'div_diff_vs_strange'
+
+#edataNames = c('Summed','Average','Max','Episode3.1','Episode3.2','Episode3.3','IBQr_fear')
+
+
+filein0_diversity = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset0)
+dat0 = read.csv(filein0_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+filein1_diversity = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset1)
+dat1 = read.csv(filein1_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+
+
+colNames = c("SUBID", div_Names)
+
+dat0 = dat0[,colNames]
+dat1 = dat1[,colNames]
+mx1 = merge(dat0,dat1,by.x=1,by.y=1)
+#div_Names = c('chao1','observed.species','PD.whole','shannon')
+for( div_Name in div_Names){
+  name_x = paste(div_Name,'.x',sep='')
+  name_y = paste(div_Name,'.y',sep='')
+  mx1[,div_Name] = mx1[,name_y] - mx1[,name_x]
+}
+
+
+
+mch1 = match(dat_ss[,1], mx1[,1])
+
+mx2 = merge(dat_ss, mx1,by.x=1,by.y=1)
+
+
+
+### running regression between diversity and 
+cdataNames = colNames[-1]
+
+  dataName = sprintf('div_diff_vs_mask_%s',dataset1)
+
+  pairwise_association_test(mx2,cdataNames,edataNames,dataName=dataName,dir_out = dir_out)
+  
+```
+
+
+
+## Microbiome alpha diversity difference (yr1 vs neo) vs Mask with linear mixed model
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### neo vs brain volume data
+
+library(knitr)
+library(lme4)
+dataset0 = 'neo'
+dataset1 = 'yr1'
+dataset = 'diff'
+
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = 'C:/Users/kxia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+} else{
+  dir1 = '/Users/kaixia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+}
+
+setwd(dir1)
+
+source('data_analysis.R')
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+#dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+
+
+div_Names = c("chao1", "observed_otus", "PD_whole_tree", "shannon")
+
+##load the mask
+fileout_diversity_beha = sprintf('%s/data_%s_beha_long.csv',dir_mb,dataset1)
+dat_ss = read.csv(fileout_diversity_beha,header=TRUE, check.names = FALSE)
+
+## remove the div in dat_ss
+dat_ss = dat_ss[, -which(colnames(dat_ss) %in% div_Names)]
+
+edataNames = colnames(dat_ss)[grep('Mask',colnames(dat_ss))]
+
+#dataName = 'div_diff_vs_strange'
+
+#edataNames = c('Summed','Average','Max','Episode3.1','Episode3.2','Episode3.3','IBQr_fear')
+
+
+filein0_diversity = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset0)
+dat0 = read.csv(filein0_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+filein1_diversity = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset1)
+dat1 = read.csv(filein1_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+
+
+colNames = c("SUBID", div_Names)
+
+dat0 = dat0[,colNames]
+dat1 = dat1[,colNames]
+mx1 = merge(dat0,dat1,by.x=1,by.y=1)
+#div_Names = c('chao1','observed.species','PD.whole','shannon')
+for( div_Name in div_Names){
+  name_x = paste(div_Name,'.x',sep='')
+  name_y = paste(div_Name,'.y',sep='')
+  mx1[,div_Name] = mx1[,name_y] - mx1[,name_x]
+}
+
+
+
+mch1 = match(dat_ss[,1], mx1[,1])
+
+mx2 = merge(dat_ss, mx1,by.x=1,by.y=1)
+
+
+
+### running regression between diversity and 
+cdataNames = colNames[-1]
+
+  dataName = sprintf('div_diff_vs_mask_ind_%s',dataset1)
+  
+datasets = c('neo','yr1')
+cvrtNames = 'episode'
+randomName = 'SUBID'
+
+
+ # dataName = sprintf('mask_ind_vs_diversity_%s',dataset)
+
+  pairwise_association_test_lmm(mx2, cdataNames, edataNames, randomName, cvrtNames,dataName = dataName, dir_out = dir_out)
+  
+  
+```
+
+
+
+
+
+
+

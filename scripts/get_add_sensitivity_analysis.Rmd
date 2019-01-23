@@ -1,0 +1,160 @@
+---
+title: "Association of microbiome vs brain in GIMA dataset"
+author:
+- Kai Xia
+date: "`r format(Sys.time(), '%d %B %Y')`"
+
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+library(xlsx)
+library(knitr)
+
+#dataset = 'neo'
+#dir_out = 'output'
+
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = 'C:/Users/kxia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+} else{
+  dir1 = '/Users/kaixia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+}
+
+setwd(dir1)
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+
+
+```
+
+
+## Sensitivity: 1-month wunifrac PC2 ~ 1-year amygdala volume with MAGE as covariate
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### neo vs brain volume data
+
+library(xlsx)
+library(knitr)
+library(lme4)
+
+dir_wk = 'OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = sprintf('C:/Users/kxia/%s', dir_wk)
+} else{
+  dir1 = sprintf('/Users/kaixia/%s', dir_wk)
+}
+
+setwd(dir1)
+
+source('data_analysis.R')
+
+
+dataset = 'neo'
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+
+
+######################################################################################
+# 1-month wunifrac PC2 ~ 1-year amygdala volume with MAGE as covariate
+
+filein_diversity = sprintf('%s/data_%s_diversity_brain.csv',dir_mb,dataset)
+dat1 = read.csv(filein_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+
+lm1 = lm(yr1.Amygdala_LR ~ wunifrac.PC.2 + MAGE, data=dat1)
+sum1 = summary(lm1)
+
+print(kable(sum1$coefficients,caption='1-month wunifrac PC2 ~ 1-year amygdala volume with MAGE as covariate'))
+
+
+######################################################################################
+# Sensitivity: 1-month shannon index ~ bodily fear, facial fear, vocal distress with VITDNEO as covariate
+filein_diversity = sprintf('%s/data_%s_beha_long.csv',dir_mb,dataset)
+dat1 = read.csv(filein_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+
+edataNames = c('MaskIntensityFacialFear..0.3.'
+               ,'MaskIntensityVocalDistress..0.3.'
+               ,'MaskIntensityBodilyFear..0.3.')
+Names = c('FacialFear','VocalDistress','BodilyFear')
+
+for(i in 1:length(edataNames)) {
+  edataName = edataNames[i]
+  model_design = sprintf('%s ~ shannon + VITAMINDNEO + episode + (1|SUBID)', edataName)
+
+  lmm_fit <- lmer(model_design, data = dat1)
+      
+  coefs <- data.frame(coef(summary(lmm_fit)))
+  coefs$p.z <- 2 * (1 - pnorm(abs(coefs$t.value)))
+
+  print(kable(coefs,caption=sprintf('%s vs shannon',Names[i])))
+
+}
+
+```
+
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### neo vs brain volume data
+
+library(xlsx)
+library(knitr)
+library(lme4)
+
+dir_wk = 'OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = sprintf('C:/Users/kxia/%s', dir_wk)
+} else{
+  dir1 = sprintf('/Users/kaixia/%s', dir_wk)
+}
+
+setwd(dir1)
+
+source('data_analysis.R')
+
+
+dataset = 'neo'
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+
+
+######################################################################################
+# Mediation: 1-year Weighted Unifrac PC1 ~ 1-year amygdala volume ~ repeated measures outcomes of facial fear, vocal distress, bodily fear, and escape behavior
+filein_brain = sprintf('%s/data_yr1_diversity_brain.csv',dir_mb)
+dat1 = read.csv(filein_brain,header=TRUE,strings=FALSE,check.names=FALSE)
+
+filein_diversity = sprintf('%s/data_yr1_beha.csv',dir_mb)
+dat2 = read.csv(filein_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+mx1 = merge(dat1, dat2, by = 1)
+
+cond1 = !is.na(mx1$MaskAverageScore_BodilyFear)
+cond2 = !is.na(mx1$yr1.Amygdala_LR)
+
+mx2 = mx1[cond1 & cond2,]
+
+
+```
+
