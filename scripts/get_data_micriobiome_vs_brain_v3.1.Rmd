@@ -1,0 +1,647 @@
+---
+title: "Association of microbiome vs brain in GIMA dataset (V3)"
+author:
+- Kai Xia
+date: "`r format(Sys.time(), '%d %B %Y')`"
+
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+
+#### 2020 0327: v3.1 adds the age and sex in the model for brain vs microbiome 
+
+library(xlsx)
+library(knitr)
+
+#dataset = 'neo'
+#dir_out = 'output'
+
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = 'C:/Users/kxia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+} else{
+  dir1 = '/Users/kaixia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+}
+
+setwd(dir1)
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+
+
+```
+
+## Spaghetti plot of behavior data
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE,eval = FALSE}
+library(xlsx)
+library(knitr)
+library(ggplot2)
+
+dataset = 'neo'
+dir_out = 'output'
+
+dir_wk = 'OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = sprintf('C:/Users/kxia/%s', dir_wk)
+} else{
+  dir1 = sprintf('/Users/kaixia/%s', dir_wk)
+}
+
+pdf('spaghetti_plot_behavior_longitudinal.pdf',paper='special',width=8*0.9,height=12*.9)
+
+
+
+setwd(dir1)
+dir_brain = 'braindata'
+dir_mb = '../processed_data'
+
+filein_beha = sprintf('%s/%s_heha_sep_linearmix.csv',dir_mb,dataset)
+dat1 = read.csv(filein_beha,header=TRUE,strings=FALSE)
+
+edataNames = c('Mask1IntensityFacialFear..0.3.'
+		,'Mask1IntensityVocalDistress..0.3.'
+		,'Mask1IntensityBodilyFear..0.3.'
+		,'Mask1PresenceStartleResponse.0.no.1.yes'
+		,'Mask1IntensityEscapeBehavior..0.3.')
+
+divNames = c("chao1"                                          
+  ,"observed.species"                               
+  ,"PD.whole"                                       
+  ,"shannon"                                        
+  ,"wunifrac.PC.1"                                  
+  ,"wunifrac.PC.2" )
+
+#dat1 = dat1[order(SUBID, Group)]
+dat1 = dat1[order(dat1$SUBID,dat1$Group),]
+
+## the ggplot2 sucks here when using jitter, need to plot by myself
+# for( edataName in edataNames){
+#   # edataName = edataNames[1]
+#   dat2 = dat1[!is.na(dat1[,edataName]),]
+#   ggplot(dat2, aes(x=Group, y=dat2[,edataName], group=factor(SUBID), color=factor(SUBID))) +
+#   geom_line() + geom_point()+geom_jitter() + theme_bw()
+#   
+# }
+
+## my own plot
+pch1 = 16
+layout(matrix(1:6,3,2,byrow = TRUE))
+for( edataName in edataNames){
+  # edataName = edataNames[1]
+  dat2 = dat1[!is.na(dat1[,edataName]),]
+  subid_all = unique(dat2$SUBID)
+  N = length(unique(dat2$SUBID))
+  x=dat2$Group
+  y=dat2[,edataName]
+
+  X = x + rnorm(length(x))/20
+  Y = y + rnorm(length(y))/20
+  
+  for(divName in divNames){
+    #divName = 'wunifrac.PC.1'
+    vals = dat2[,divName]
+    quantile_val = quantile(vals,probs=seq(0,1,0.1))
+    cols = rainbow(11)
+    cols_all = rep(NA,length(vals))
+    for(j in 1:length(vals)){
+      col_idx = sum(as.numeric(vals[j]) > quantile_val) + 1
+      cols_all[j] = cols[col_idx]
+    }
+    
+    plot(X, Y, col=cols_all,type='n',xlab='Episode',ylab=edataName,pch=pch1,cex=1)
+    pch_all = 1:N
+    for(ii in 1:N) {
+      subid = subid_all[ii]
+      cond1 = dat2$SUBID == subid
+      points(X[cond1], Y[cond1],col=cols_all[cond1],pch=ii)
+      lines(X[cond1], Y[cond1],col=cols_all[cond1])
+    }
+    
+    
+    legend('topright',legend=paste(round(quantile_val,3)),col=cols,pch=pch1,cex=0.6,title=divName)
+  }
+  
+}
+
+dev.off()
+
+
+
+```
+
+
+## Microbiome neo vs brain volume
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### neo vs brain volume data
+
+library(xlsx)
+library(knitr)
+
+
+dataset = 'neo'
+#dir_out = 'output'
+
+dir_wk = 'OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = sprintf('C:/Users/kxia/%s', dir_wk)
+} else{
+  dir1 = sprintf('/Users/kaixia/%s', dir_wk)
+}
+setwd(dir1)
+
+
+source('data_analysis.R')
+
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+
+
+filein_diversity = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset)
+dat1 = read.csv(filein_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+
+sheetNames = c('WB_neo','ROI_neo','WB_yr1','ROI_yr1')
+reNames = c('neo','neo','yr1','yr1')
+
+mx1 = c()
+for( i in 1:length(sheetNames)){
+  
+
+  dat0 = read.xlsx(sprintf('%s/data_combine_microbiome_%s_vs_brain.xlsx',dir_brain,dataset),sheetName = sheetNames[i],header=TRUE)
+  ## add suffix for the names
+  colNames = colnames(dat0)
+  colnames(dat0) = paste(reNames[i],colNames,sep='.')
+  if(length(mx1) == 0){
+    mx1 = dat0
+  } else{
+    mx1 = merge(mx1,dat0,by.x=1,by.y=1,all.x=TRUE,all.y=TRUE)
+  }
+  
+}
+#print(dim(dat1))
+#print(dim(mx1))
+
+## save response data
+edataNames = colnames(mx1)[-1]
+
+mx2 = merge(dat1, mx1, by.x=1, by.y=1,all.x=TRUE,all.y=TRUE)
+#print(dim(mx2))
+
+fileout = sprintf('%s/data_%s_diversity_brain.csv',dir_mb,dataset)
+write.csv(mx2,file = fileout,quote=FALSE, row.names = FALSE)
+
+
+### running regression between diversity and 
+#cdataNames = colnames(mx2)[2:13]
+
+  cdataNames = c(paste("wunifrac.PC.",1:2,sep='')
+                 # ,paste("unifrac.PC.",1:4,sep='') 
+                  ,"chao1","observed_otus","PD_whole_tree","shannon"
+                 ,paste('div_alpha_PC',1:4,sep='')
+                )
+  
+
+
+  dataName = sprintf('microbiome_vs_brain_%s',dataset)
+
+  #pairwise_association_test(mx2,cdataNames,edataNames,dataName=dataName,dir_out = dir_out)
+  
+
+
+  cdataNames = c('wunifrac.PC.1','wunifrac.PC.2','div_alpha_PC1','div_alpha_PC2','AGEVISITNEO','SEX')
+  mx2$SEX = mx2$SEX - 1
+  pairwise_association_test_multiple_regression(mx2,cdataNames,edataNames,dataName=dataName,dir_out = dir_out)
+  
+  
+  
+  
+
+#####################################################################
+### reshape the data to be long format so that three brain image measure can be considered as multivariate
+varNames = c('Hippocampus_LR','Amygdala_LR','mPFC')     
+  
+data_yrs = c('neo','yr1')
+
+
+# https://stackoverflow.com/questions/23945350/reshaping-wide-to-long-with-multiple-values-columns
+
+## ATTN: guessing is not attempted if v.names is given explicitly. Notice that the order of variables in varying is like x.1,y.1,x.2,y.2.
+## ATTN: the varyingNames need to be a matrix to make this work so the results are not messed.
+## still need to check the data !!!!!!!!!!!!!!!!!!
+
+varyingNames = outer(paste(data_yrs,'.',sep=''),varNames,FUN=paste0)
+#varyingNames = t(varyingNames)
+#varyingNames = t(outer(varNames,paste(c('neo','yr1'),'.',sep=''),FUN=paste0))
+
+
+  ### standardize the three different brain image because they have different scale
+  for(varName in as.vector(varyingNames)) {
+    y = mx2[,varName]
+    sd1 = sd(y, na.rm = TRUE)
+    mean1 = mean(y, na.rm = TRUE)
+    mx2[,varName] = (y - mean1) / sd1
+  }
+
+
+maskNames = paste('Brain','.', data_yrs, sep='')
+idName = 'SUBID'
+timeName = 'episode'
+
+data_mask_long = reshape(mx2, varying = varyingNames
+                      ,v.names = maskNames, timevar=timeName
+                      ,times=varNames
+                      , direction='long',idvar = idName)
+  
+#}
+data_mask_long = data_mask_long[,c(idName, timeName, maskNames)]
+
+  ## create longformat of the data
+  fileout_mx_long = sprintf('%s/data_%s_brain_long.csv',dir_mb, dataset)
+
+  mx_div_mask_long = merge(dat1, data_mask_long, by = 1, all.y = TRUE)
+  #mx_div_mask_long[mx_div_mask_long == 99] = 12
+  write.csv(mx_div_mask_long, fileout_mx_long, row.names = FALSE)
+  
+
+
+```
+
+
+
+
+
+
+## Microbiome yr1 vs brain volume
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE}
+### neo vs brain volume data
+
+library(xlsx)
+library(knitr)
+dataset = 'yr1'
+
+dir_wk = 'OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = sprintf('C:/Users/kxia/%s', dir_wk)
+} else{
+  dir1 = sprintf('/Users/kaixia/%s', dir_wk)
+}
+
+setwd(dir1)
+
+source('data_analysis.R')
+
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+
+filein_diversity = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset)
+dat1 = read.csv(filein_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+
+sheetNames = c('WB_yr1','ROI_yr1')
+reNames = c('yr1','yr1')
+
+mx1 = c()
+for( i in 1:length(sheetNames)){
+  
+
+  dat0 = read.xlsx(sprintf('%s/data_combine_microbiome_%s_vs_brain.xlsx',dir_brain,dataset),sheetName = sheetNames[i],header=TRUE)
+  ## add suffix for the names
+  colNames = colnames(dat0)
+  colnames(dat0) = paste(reNames[i],colNames,sep='.')
+  if(length(mx1) == 0){
+    mx1 = dat0
+  } else{
+    mx1 = merge(mx1,dat0,by.x=1,by.y=1,all.x=TRUE,all.y=TRUE)
+  }
+  
+}
+#print(dim(dat1))
+#print(dim(mx1))
+
+## save response data
+edataNames = colnames(mx1)[-1]
+
+mx2 = merge(dat1, mx1, by.x=1, by.y=1,all.x=TRUE)
+#print(dim(mx2))
+
+fileout = sprintf('%s/data_%s_diversity_brain.csv',dir_mb,dataset)
+write.csv(mx2,file = fileout,quote=FALSE, row.names = FALSE)
+
+
+### running regression between diversity and 
+#cdataNames = colnames(mx2)[2:13]
+
+  cdataNames = c(paste("wunifrac.PC.",1:2,sep='')
+                 # ,paste("unifrac.PC.",1:4,sep='') 
+                  ,"chao1","observed_otus","PD_whole_tree","shannon"
+                 ,paste('div_alpha_PC',1:4,sep='')
+                )
+  
+
+  dataName = sprintf('microbiome_vs_brain_%s',dataset)
+
+  #pairwise_association_test(mx2,cdataNames,edataNames,dataName=dataName,dir_out = dir_out)
+  
+
+  cdataNames = c('wunifrac.PC.1','wunifrac.PC.2','div_alpha_PC1','div_alpha_PC2','AgeAt1yrVisit','SEX')
+  mx2$SEX = mx2$SEX - 1
+  pairwise_association_test_multiple_regression(mx2,cdataNames,edataNames,dataName=dataName,dir_out = dir_out)
+  
+  
+  
+  
+  
+#####################################################################
+### reshape the data to be long format so that three brain image measure can be considered as multivariate
+varNames = c('Hippocampus_LR','Amygdala_LR','mPFC')     
+  
+data_yrs = c('yr1')
+
+
+# https://stackoverflow.com/questions/23945350/reshaping-wide-to-long-with-multiple-values-columns
+
+## ATTN: guessing is not attempted if v.names is given explicitly. Notice that the order of variables in varying is like x.1,y.1,x.2,y.2.
+## ATTN: the varyingNames need to be a matrix to make this work so the results are not messed.
+## still need to check the data !!!!!!!!!!!!!!!!!!
+
+varyingNames = outer(paste(data_yrs,'.',sep=''),varNames,FUN=paste0)
+#varyingNames = t(varyingNames)
+#varyingNames = t(outer(varNames,paste(c('neo','yr1'),'.',sep=''),FUN=paste0))
+
+
+  ### standardize the three different brain image because they have different scale
+  for(varName in as.vector(varyingNames)) {
+    y = mx2[,varName]
+    sd1 = sd(y, na.rm = TRUE)
+    mean1 = mean(y, na.rm = TRUE)
+    mx2[,varName] = (y - mean1) / sd1
+  }
+
+
+maskNames = paste('Brain','.', data_yrs, sep='')
+idName = 'SUBID'
+timeName = 'episode'
+
+data_mask_long = reshape(mx2, varying = varyingNames
+                      ,v.names = maskNames, timevar=timeName
+                      ,times=varNames
+                      , direction='long',idvar = idName)
+  
+#}
+data_mask_long = data_mask_long[,c(idName, timeName, maskNames)]
+
+  ## create longformat of the data
+  fileout_mx_long = sprintf('%s/data_%s_brain_long.csv',dir_mb, dataset)
+
+  mx_div_mask_long = merge(dat1, data_mask_long, by = 1, all.y = TRUE)
+  #mx_div_mask_long[mx_div_mask_long == 99] = 12
+  write.csv(mx_div_mask_long, fileout_mx_long, row.names = FALSE)
+  
+
+  
+
+```
+
+
+\newpage
+
+# Association analysis for diversity vs multivariate brain measure using linear mixed effect model
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE,eval=FALSE}
+#### run the association analysis for diversity vs strange situation or questionaire using linear model
+library(lme4)
+library(knitr)
+
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = 'C:/Users/kxia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+} else{
+  dir1 = '/Users/kaixia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+}
+
+setwd(dir1)
+
+source('data_analysis.R')
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt',dir_raw)
+dir_beha = sprintf('%s/behaviordata', dir_raw)
+dir_ibqr = sprintf('%s/questionnaires', dir_raw)
+dir_out = '../results'
+
+randomName = 'SUBID'
+cvrtNames = ''
+
+
+datasets = c('neo','yr1')
+
+for(dataset in datasets){
+  # dataset = datasets[1];
+  fileout_diversity_beha = sprintf('%s/data_%s_brain_long.csv',dir_mb,dataset)
+  dat2 = read.csv(fileout_diversity_beha,header=TRUE, check.names = FALSE)
+  dataName = sprintf('diversity_vs_strange_combine_%s',dataset)
+
+  ## save response data
+  if(dataset == 'neo'){
+    edataNames = c('Brain.neo','Brain.yr1')
+  } else{
+    edataNames = c('Brain.yr1')
+  }
+  
+  mx2 = dat2
+  
+  mx2$episodes = as.factor(mx2$episode)
+  
+  
+  #################################################################################
+  ### now run single model using all cvrt
+  cdataNames = c(paste("wunifrac.PC.",1:2,sep='')
+                 # ,paste("unifrac.PC.",1:4,sep='') 
+                #  ,"chao1","observed_otus","PD_whole_tree","shannon"
+                 ,paste('div_alpha_PC',1:2,sep='')
+                )
+  randomName = '(1|SUBID)'
+
+  cvrt_all = c(cdataNames, cvrtNames)
+  cvrt_model = paste(cvrt_all, collapse=' + ')
+  
+  for(edataName in edataNames) {
+    model_design = sprintf('%s ~ %s + %s', edataName, cvrt_model, randomName)
+    
+    lmm_fit <- lmer(model_design, data = mx2)
+    coefs <- data.frame(coef(summary(lmm_fit)))
+    coefs$p.z <- 2 * (1 - pnorm(abs(coefs$t.value)))
+    print(kable(coefs,caption=sprintf('%s diversity vs %s: multivariate analysis with linear mixed model', dataset, edataName)))
+  }
+}
+
+```
+
+
+
+## Microbiome alpha diversity difference (yr1 vs neo) vs brain volume
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE,eval=FALSE}
+### neo vs brain volume data
+
+library(xlsx)
+library(knitr)
+dataset0 = 'neo'
+dataset1 = 'yr1'
+dataset = 'diff'
+
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = 'C:/Users/kxia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+} else{
+  dir1 = '/Users/kaixia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+}
+
+setwd(dir1)
+
+source('data_analysis.R')
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+
+
+##load the brain data
+filein_brain = sprintf('%s/GMIAbrain_longitudinalmicrobiome_1yrbrain_5SEP18.xlsx',dir_brain)
+data1_brain = read.xlsx(filein_brain,sheetIndex = 1)
+data2_brain = read.xlsx(filein_brain,sheetIndex = 2)
+data_brain = cbind(data1_brain,data2_brain[,-1])
+
+edataNames = colnames(data_brain)[-1]
+
+
+
+filein0_diversity = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset0)
+dat0 = read.csv(filein0_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+filein1_diversity = sprintf('%s/%s_diversity_covariate.csv',dir_mb,dataset1)
+dat1 = read.csv(filein1_diversity,header=TRUE,strings=FALSE,check.names=FALSE)
+
+div_Names = c("chao1", "observed_otus", "PD_whole_tree", "shannon")
+colNames = c("SUBID", div_Names)
+
+dat0 = dat0[,colNames]
+dat1 = dat1[,colNames]
+mx1 = merge(dat0,dat1,by.x=1,by.y=1)
+#div_Names = c('chao1','observed.species','PD.whole','shannon')
+for( div_Name in div_Names){
+  name_x = paste(div_Name,'.x',sep='')
+  name_y = paste(div_Name,'.y',sep='')
+  mx1[,div_Name] = mx1[,name_y] - mx1[,name_x]
+}
+
+
+
+mch1 = match(data_brain[,1], mx1[,1])
+
+mx2 = merge(data_brain, mx1,by.x=1,by.y=1)
+
+
+
+### running regression between diversity and 
+cdataNames = colNames[-1]
+
+  dataName = sprintf('div_diff_vs_brain_%s',dataset1)
+
+  pairwise_association_test(mx2,cdataNames,edataNames,dataName=dataName,dir_out = dir_out)
+  
+
+
+```
+
+
+
+
+
+
+
+## Microbiome alpha diversity at neo to predict change of brain volume from neo to yr1
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE, eval=FALSE}
+### neo vs brain volume data
+
+library(xlsx)
+library(knitr)
+dataset0 = 'neo'
+dataset1 = 'yr1'
+dataset = 'diff'
+
+if(Sys.info()["sysname"] == 'Windows'){
+  dir1 = 'C:/Users/kxia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+} else{
+  dir1 = '/Users/kaixia/OneDrive - University of North Carolina at Chapel Hill/github/gmia/scripts'
+}
+
+setwd(dir1)
+
+source('data_analysis.R')
+
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+
+
+###
+filein = sprintf('%s/data_neo_diversity_brain.csv',dir_mb)
+dat1 = read.csv(filein,stringsAsFactors = FALSE,check.names = FALSE)
+cond1 = !is.na(dat1$neo.WM) & !is.na(dat1$yr1.WM)
+
+colNames = c("SUBID", "chao1", "observed_otus", "PD_whole_tree", "shannon",paste("wunifrac.PC.",1:4,sep=''), paste("unifrac.PC.",1:4,sep=''))
+
+edataNames = c('WM','GM','CSF','ICV','Hippocampus_LR','Amygdala_LR','mPFC')
+cdataNames = colNames[-1]
+
+dat2 = dat1[cond1,]
+
+diffNames = paste('diff.',edataNames,sep='')
+for(i in 1:length(edataNames)){
+  diffName = diffNames[i]
+  dat2[,diffName] = dat2[,paste('yr1.',edataNames[i],sep='')] - dat2[,paste('neo.',edataNames[i],sep='')]
+}
+
+
+edataNames = diffNames
+
+  dataName = sprintf('%s_div_vs_diff_brain',dataset0)
+
+  pairwise_association_test(dat2,cdataNames,edataNames,dataName=dataName,dir_out = dir_out)
+  
+
+
+
+```
+
+
+
+

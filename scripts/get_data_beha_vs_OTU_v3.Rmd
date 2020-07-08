@@ -1,0 +1,204 @@
+---
+title: "get_data_beha_vs_OTU (V3)"
+author:
+- Kai Xia
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### mask task vs OTU
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE,warning=FALSE}
+library(knitr)
+library(dplyr)
+
+library(lme4)
+library(stringr)
+library(survival)
+#library(coxme)
+
+#dir_beha = 'behaviordata'
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+
+
+#dir_ibqr = 'questionnaires'
+
+source('data_analysis_OTU.R')
+
+
+#dir_beha = 'behaviordata'
+dir_mb = '../processed_data'
+dir_out = '../results'
+
+
+datasets = c('neo','yr1')
+cvrtNames = 'episode'
+randomName = 'SUBID'
+
+
+for(ii in 1:length(datasets)){
+  # ii = 2;
+  dataset = datasets[ii]
+  file_diversity_beha = sprintf('%s/data_%s_beha_long.csv',dir_mb,dataset)
+  file_OTU = sprintf('%s/%s_filter.csv',dir_mb,dataset)
+  mx2 = read.csv(file_diversity_beha,header=TRUE)
+  OTU = read.csv(file_OTU,header=TRUE)
+  mx3 = inner_join(mx2,OTU,by=c("SUBID"="X"))
+  
+  ## select the cdataName and edataName
+  edataNames = colnames(mx2)[grep('Mask',colnames(mx3))]
+  #cdataNames = colnames(data_cvrt)[-c(1:2)]
+  
+  cdataNames = colnames(OTU)[-1]
+  
+  
+  
+  # dataName_sur = sprintf('mask_ind_vs_OTU_%s',dataset)
+  dataName_lmm = sprintf('mask_ind_vs_OTU_%s_lmm',dataset)
+  # pairwise_association_test_lmm_surv(mx3, cdataNames, edataNames, randomName, cvrtNames,dataName = dataName_sur, dir_out = dir_out,methods = methods)
+  #pdf(file=sprintf('%s/scatterplot_behav_vs_%s.pdf',dir_out,dataset),paper='special',width=6,height=8)
+  layout(matrix(1:6,3,2,byrow=TRUE))
+  pairwise_association_test_lmm_excel(mx3, cdataNames, edataNames, randomName, cvrtNames,dataName = dataName_lmm, dir_out = dir_out)
+  #dev.off()
+}
+
+```
+
+
+
+### Brain vs OTU
+
+```{r echo=FALSE,results='asis',include=TRUE, cache=FALSE,message=FALSE,warning=FALSE}
+library(knitr)
+library(dplyr)
+
+library(lme4)
+library(stringr)
+library(survival)
+#library(coxme)
+
+#dir_beha = 'behaviordata'
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+
+
+#dir_ibqr = 'questionnaires'
+
+source('data_analysis_OTU.R')
+
+
+#dir_beha = 'behaviordata'
+dir_mb = '../processed_data'
+dir_out = '../results'
+
+
+datasets = c('neo','yr1')
+cvrtNames = 'episode'
+randomName = 'SUBID'
+
+
+datasets = c('neo','yr1')
+  
+for(ii in 1:length(datasets)){
+  # ii = 2;
+  dataset = datasets[ii]
+  file_diversity_beha = sprintf('%s/data_%s_diversity_brain.csv',dir_mb,dataset)
+  file_OTU = sprintf('%s/%s_filter.csv',dir_mb,dataset)
+  mx2 = read.csv(file_diversity_beha,header=TRUE)
+  OTU = read.csv(file_OTU,header=TRUE)
+  mx3 = inner_join(mx2,OTU,by=c("SUBID"="X"))
+  mx3 = merge(mx2, OTU, by.x=1 ,by.y=1)
+  
+  ## select the cdataName and edataName
+  edataNames = c('Hippocampus_LR','Amygdala_LR','mPFC')
+  #cdataNames = colnames(data_cvrt)[-c(1:2)]
+  
+  if(dataset == 'neo'){
+    edataNames = c(paste('neo.',edataNames,sep=''), paste('yr1.', edataNames,sep=''))
+  } else{
+    edataNames = paste('yr1','.',edataNames,sep='')
+  }
+  
+  cdataNames = colnames(OTU)[-1]
+  
+  
+  dataName = sprintf('brain_vs_OTU_%s',dataset)
+  
+  if(dataset == 'neo'){
+    cvrtNames = c('AGEVISITNEO','SEX')
+  } else if(dataset == 'yr1'){
+    cvrtNames = c('AgeAt1yrVisit','SEX')
+  }
+  
+  mx3$SEX = mx3$SEX - 1
+  mx_out = pairwise_association_test_excel(mx3,cdataNames,edataNames,cvrtNames,dataName=dataName,dir_out = dir_out)
+  #print(kable(mx_out))
+}
+
+```
+
+
+
+```{r eval=FALSE, echo=FALSE}
+#Finding significant bacteria
+sig_OTU=c("k__Bacteria.p__Firmicutes.c__Clostridia.o__Clostridiales.Other.Other","k__Bacteria.p__Firmicutes.c__Clostridia.o__Clostridiales.f__Veillonellaceae.g__Dialister","k__Bacteria.p__Firmicutes.c__Clostridia.o__Clostridiales.f__Veillonellaceae.g__Veillonella","k__Bacteria.p__Firmicutes.c__Erysipelotrichi.o__Erysipelotrichales.f__Erysipelotrichaceae.g__")
+#Define significant origin behaviour
+sig_behav=c("MaskIntensityEscapeBehavior..0.3.","MaskIntensityVocalDistress..0.3.","MaskLatencyFearResponse")
+#Define significant average behaviour
+sig_avrg_behav=c("MaskAverageScore_EscapeBehavior","MaskAverageScore_VocalDistress","MaskAverageScore_Latency")
+
+file_behav_yr1 = sprintf('%s/data_yr1_behav.csv',dir_mb)
+behav_yr1 = read.csv(file_behav_yr1,header=TRUE)
+
+pdf(file=sprintf('%s/scatterplot_behav_vs_OTU_sig.pdf',dir_out),paper='special',width=6,height=8)
+  layout(matrix(1:6,3,2,byrow=TRUE))
+  
+  for (i in 1:length(sig_OTU)){
+    if(sig_OTU[i]!="k__Bacteria.p__Firmicutes.c__Clostridia.o__Clostridiales.f__Veillonellaceae.g__Dialister"){
+      #plot 3 bacteria only significant with escape behavior, repetative and average, respectivitely
+      plot(jitter(mx3[,sig_OTU[i]],1000),jitter(mx3[,"MaskIntensityEscapeBehavior..0.3."],1),
+             xlab=str_sub(sig_OTU[i],str_length(sig_OTU[i])-40,str_length(sig_OTU[i])),
+             ylab="MaskIntensityEscapeBehavior..0.3.",
+             pch = c(15,16, 17, 18)[as.numeric(mx3$episode)],
+             col = c("red", "green","blue","purple")[as.numeric(mx3$episode)]
+             )
+        legend("topright",title="Episode",legend=c("1","2","3","4"),col = c("red", "green","blue","purple"),pch = c(15,16, 17, 18),bty="n",cex=0.7,pt.cex=0.7)
+        abline(lm(mx3[,"MaskIntensityEscapeBehavior..0.3."]~mx3[,sig_OTU[i]],na.action=na.omit))
+        
+      plot(behav_yr1[,sig_OTU[i]],jitter(behav_yr1[,"MaskAverageScore_EscapeBehavior"],1),
+             xlab=str_sub(sig_OTU[i],str_length(sig_OTU[i])-40,str_length(sig_OTU[i])),
+             ylab="MaskAverageScore_EscapeBehavior"
+             )
+        abline(lm(behav_yr1[,"MaskAverageScore_EscapeBehavior"]~behav_yr1[,sig_OTU[i]],na.action=na.omit))
+    }else{
+      #this bacteria has 3 significant behaviour, repetative and average, respectivitely
+      for(j in 1:length(sig_behav)){
+        plot(jitter(mx3[,sig_OTU[i]],1000),jitter(mx3[,sig_behav[j]],1),
+             xlab=str_sub(sig_OTU[i],str_length(sig_OTU[i])-40,str_length(sig_OTU[i])),
+             ylab=sig_behav[j],
+             pch = c(15,16, 17, 18)[as.numeric(mx3$episode)],
+             col = c("red", "green","blue","purple")[as.numeric(mx3$episode)]
+             )
+        legend("topright",title="Episode",legend=c("1","2","3","4"),col = c("red", "green","blue","purple"),pch = c(15,16, 17, 18),bty="n",cex=0.7,pt.cex=0.7)
+        abline(lm(mx3[,sig_behav[j]]~mx3[,sig_OTU[i]],na.action=na.omit))
+        
+        plot(behav_yr1[,sig_OTU[i]],jitter(behav_yr1[,sig_avrg_behav[j]],1),
+             xlab=str_sub(sig_OTU[i],str_length(sig_OTU[i])-40,str_length(sig_OTU[i])),
+             ylab=sig_avrg_behav[j]
+             )
+        abline(lm(behav_yr1[,sig_avrg_behav[j]]~behav_yr1[,sig_OTU[i]],na.action=na.omit))
+      }
+    }
+  }
+  dev.off()
+  
+```
+
