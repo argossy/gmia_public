@@ -1,6 +1,4 @@
-# GMIA
-Association analysis between microbiome and behavior
-
+# Infant Gut Microbiome Associated with Fear Behavior
 
 
 ### Code
