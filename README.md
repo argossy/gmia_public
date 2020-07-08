@@ -1,40 +1,23 @@
 # GMIA
 Association analysis between microbiome and behavior
 
-## Datasets
 
 
-### Microbiome dataset
-#### Neo
-160527_UNC23_0034_000000000-ANV4F
+### Code
+#### association analysis between mask task vs microbiome diversity
+get_data_micriobiome_cvrt_beha_v3.Rmd
 
-#### 1 yr
-160628_UNC21_0326_000000000-AP235
+#### association analysis between behavior vs OTUs
+get_data_beha_vs_OTU_v3.Rmd
 
-#### Alpha diversity
+#### association analysis between brain imaging vs microbiome diversity
+get_data_micriobiome_vs_brain_v3.1.Rmd
+
+#### association analysis between strange situation vs microbiome diversity
+get_data_micriobiome_vs_strange_situations_v2.Rmd
+
+### Summary analysis of behavior dataset
+get_data_summary_GIMA.Rmd
 
 
-#### Beta diversity
 
-
-### Behavior dataset
-
-
-#### Mask task
-* Individual mask task for 4 episodes
-
-* Combined mask task using mean, sum and max
-
-#### Strange situation
-* Individual strange situation task for 3 episodes
-
-* Combined strange situation task using mean, sum and max
-
-### Brain volume dataset
-* Total brain volume
-
-* Regional brain volume
-
-```r
-plot(rnorm(10))
-```
