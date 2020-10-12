@@ -37,6 +37,8 @@ get_data_micriobiome_vs_brain_v3.1.Rmd
 get_data_micriobiome_vs_strange_situations_v2.Rmd
 ```
 
+### Reference
+Carlson A, Xia K, Azcarate-Peril A, Rosin S, Fine J, Mu W, Zopp J, Kimmel M, Styner M, Thompson A, Propper C, Knickmeyer R. (2020). Infant Gut Microbiome Associated with Fear Behavior. ***Nature Communications***. (In Press)
 
 
 
