@@ -1,0 +1,91 @@
+---
+title: "loading of PCA"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r loading, eval=TRUE}
+### weighted unifrac
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+dir_fig = '../fig'
+dataset = 'neo'
+
+dir_div = sprintf('%s/diversity/%s', dir_raw, dataset)
+
+dir_otu = sprintf('%s/core_div/taxa_plots',dir_div)
+dir_beta = sprintf('%s/core_div/bdiv_even5000',dir_div)
+
+file_pc = sprintf('%s/weighted_unifrac_pc_mod.txt',dir_beta)
+mx_pc = read.delim(file_pc,header=FALSE,strings=FALSE)
+
+pdf(sprintf('%s/PCA_loading_%s.pdf',dir_fig, dataset),width=4*3,height=4*5,paper='special')
+layout(matrix(1:2,1,2,byrow=TRUE))
+mch1 = match(colnames(data_matrix), mx_pc[,1])
+#pc1 = mx_pc[mch1,2]
+#pc2 = mx_pc[mch1,3]
+pcs = mx_pc[mch1,2:3]
+cor_mx=cor(pcs,t(data_matrix))
+
+for(i in 1:dim(pcs)[2]){
+  barplot(cor_mx[i,],main=paste('PC',i,'loading'),horiz=TRUE,names.arg=genusNames,las=2,cex.names = 0.7,xlab='Corerlation Coefficient')
+}  
+dev.off()
+
+fileout_genus = sprintf('%s/genus_table_Names_%s.csv',dir_mb,dataset)
+write.csv(colnames(cor_mx), fileout_genus,row.names = FALSE)
+
+```
+
+
+
+```{r loading, eval=TRUE}
+### weighted unifrac
+dir_mb = '../processed_data'
+dir_raw = '../raw_data'
+dir_cvrt = sprintf('%s/cvrt', dir_raw)
+dir_brain = sprintf('%s/braindata', dir_raw)
+dir_out = '../results'
+dir_fig = '../fig'
+dataset = 'yr1'
+
+dir_div = sprintf('%s/diversity/%s', dir_raw, dataset)
+
+dir_otu = sprintf('%s/core_div/taxa_plots',dir_div)
+dir_beta = sprintf('%s/core_div/bdiv_even5000',dir_div)
+
+file_pc = sprintf('%s/weighted_unifrac_pc_mod.txt',dir_beta)
+mx_pc = read.delim(file_pc,header=FALSE,strings=FALSE)
+
+pdf(sprintf('%s/PCA_loading_%s.pdf',dir_fig, dataset),width=4*3,height=4*5,paper='special')
+layout(matrix(1:2,1,2,byrow=TRUE))
+mch1 = match(colnames(data_matrix), mx_pc[,1])
+#pc1 = mx_pc[mch1,2]
+#pc2 = mx_pc[mch1,3]
+pcs = mx_pc[mch1,2:3]
+cor_mx=cor(pcs,t(data_matrix))
+
+for(i in 1:dim(pcs)[2]){
+  barplot(cor_mx[i,],main=paste('PC',i,'loading'),horiz=TRUE,names.arg=genusNames,las=2,cex.names = 0.7,xlab='Corerlation Coefficient')
+}  
+dev.off()
+
+fileout_genus = sprintf('%s/genus_table_Names_%s.csv',dir_mb,dataset)
+write.csv(colnames(cor_mx), fileout_genus,row.names = FALSE)
+
+```
+
+
+
+
+
+
+
