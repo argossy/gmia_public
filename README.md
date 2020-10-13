@@ -37,6 +37,12 @@ get_data_micriobiome_vs_brain_v3.1.Rmd
 get_data_micriobiome_vs_strange_situations_v2.Rmd
 ```
 
+#### Change in alpha diversity from 1 month to 1 year highlighting change in subjects with highest alpha diversity at 1-month and 1-year 
+##### Figure S2
+``` js
+spaghetti_plot_gen.R
+```
+
 ### Reference
 Carlson A, Xia K, Azcarate-Peril A, Rosin S, Fine J, Mu W, Zopp J, Kimmel M, Styner M, Thompson A, Propper C, Knickmeyer R. (2020). Infant Gut Microbiome Associated with Fear Behavior. ***Nature Communications***. (In Press)
 
