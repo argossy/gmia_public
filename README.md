@@ -1,4 +1,4 @@
-# Infant Gut Microbiome Associated with Fear Behavior
+# Infant Gut Microbiome Associated with Fear Behavior in a Pilot Study
 
 
 ### Code availability
