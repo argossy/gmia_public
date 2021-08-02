@@ -44,7 +44,7 @@ spaghetti_plot_gen.R
 ```
 
 ### Reference
-Carlson A, Xia K, Azcarate-Peril A, Rosin S, Fine J, Mu W, Zopp J, Kimmel M, Styner M, Thompson A, Propper C, Knickmeyer R. (2020). Infant gut microbiome composition is associated with non-social fear behavior in a pilot study. ***Nature Communications***. 2021 Jun 2;12(1):3294. doi: 10.1038/s41467-021-23281-y
+[Carlson A, Xia K, Azcarate-Peril A, Rosin S, Fine J, Mu W, Zopp J, Kimmel M, Styner M, Thompson A, Propper C, Knickmeyer R. (2020). Infant gut microbiome composition is associated with non-social fear behavior in a pilot study. ***Nature Communications***. 2021 Jun 2;12(1):3294. doi: 10.1038/s41467-021-23281-y](https://www.nature.com/articles/s41467-021-23281-y)
 
 
 
